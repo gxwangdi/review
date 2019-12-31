@@ -155,6 +155,7 @@ public class Review {
 				continue;
 			}
 			String res = problems.get(range);
+			problems.remove(range);
 			return res;
 		}
 		return "cannot find the problem";

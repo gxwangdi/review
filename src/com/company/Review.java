@@ -8,14 +8,12 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
 public class Review {
-	public static final String[] commands = { "init", "next", "help" };
-
+	public static final String[] commands = { "init", "next", "help", "quit" };
 	public static final String[] initOptions = { "-all", "-new", "-dir" };
 
 	// File name to persist everything.
@@ -34,6 +32,12 @@ public class Review {
 		if (!OP_SUCCESS.equals(resumeProblems())) {
 			initProblems();
 		}
+	}
+
+	public void onExit() {
+
+		persistProblems();
+		System.out.println("onExit()");
 	}
 
 	/**
@@ -141,24 +145,37 @@ public class Review {
 	 **/
 	public String next() {
 		System.out.println("next");
-
-		return null;
+		long next = Utils.getRandom(bound);
+		// TODO: implement binary search here to speedup the process.
+		for (Range range : problems.keySet()) {
+			if (range.start > next) {
+				continue;
+			}
+			if (range.end < next) {
+				continue;
+			}
+			String res = problems.get(range);
+			return res;
+		}
+		return "cannot find the problem";
 	}
 
 	/**
+	 * @param scanner
 	 * @param option
 	 * @return "success" for success, or error information.
-	 */ // TODO: Add Nullable annotation for areas.
-	public String init(Option option, String[] args) {
+	 */
+	public String init(Scanner scanner, Option option, String arg) {
 		System.out.println("init " + option);
+		if (scanner == null) {
+			scanner = new Scanner(System.in);
+		}
 		switch (option.getValue()) {
 		case Option.DIR_VALUE:
-			if (args == null || args.length < 3) {
-				System.out.println("Unrecognized commands: " + Arrays.toString(args));
-				printHelp();
-				return OP_FAILURE;
+			if (!scanner.hasNext()) {
+				System.out.print("input problem set full directory(e.g, /Users/gxwangdi/Projects/Leetcode):");
 			}
-			dirPath = args[2];
+			dirPath = scanner.next();
 			break;
 		case Option.ALL_VALUE:
 			String path = Utils.validateDirPath(dirPath);
@@ -174,7 +191,7 @@ public class Review {
 		case Option.NEW_VALUE:
 			break;
 		default:
-			System.out.println("Unhandled options: " + Arrays.toString(args));
+			System.out.println("Unhandled options: " + arg);
 			// handle unexpected cases.
 		}
 		return OP_SUCCESS;
@@ -192,38 +209,50 @@ public class Review {
 		System.out
 				.println("Please enter the right command:\n" + "init -all|-new gets new problems into the repository;\n"
 						+ "init -dir <full path dir> inputs the dir to your problem repository;\n"
-						+ "next gets the problem you will need to review;\n" + "help prints this page.");
+						+ "next gets the problem you will need to review;\n" + "quit terminates this proram;\n"
+						+ "help prints this page.");
 	}
 
 	public static void main(String[] args) {
-		if (args == null || args.length < 1) {
-			Review.printHelp();
-			return;
-		}
 		Review review = new Review();
-		if (Review.commands[0].equals(args[0])) { // init
-			if (args.length < 2 || Review.initOptions[1].equals(args[1])) { // init -new
-				review.init(Option.NEW, /* args= */null);
-				return;
+		while (true) {
+			Scanner scanner = new Scanner(System.in);
+			System.out.print("Input a command(help for all commands):");
+			String cmd = scanner.next();
+			if (Review.commands[3].equals(cmd)) {// quit
+				review.onExit();
+				break;
 			}
-			if (Review.initOptions[0].equals(args[1])) { // init -all
-				review.init(Option.ALL, /* args= */null);
-				return;
+			if (Review.commands[1].equals(cmd)) { // next
+				System.out.println(review.next());
+				continue;
 			}
-			if (Review.initOptions[2].equals(args[1])) { // init -dir
-				review.init(Option.DIR, args);
-				return;
+			if (Review.commands[2].equals(cmd)) { // help
+				Review.printHelp();
+				continue;
 			}
-		} else if (Review.commands[1].equals(args[0])) { // next
-			System.out.println(review.next());
-			return;
-		} else if (Review.commands[2].equals(args[0])) { // help
+			if (Review.commands[0].equals(cmd)) { // init
+				if (!scanner.hasNext()) {
+					review.init(scanner, Option.NEW, /* args= */null);
+					continue;
+				}
+				String arg = scanner.next();
+				if (Review.initOptions[0].equals(arg)) { // init -all
+					review.init(scanner, Option.ALL, /* args= */null);
+					continue;
+				}
+				if (Review.initOptions[1].equals(arg)) { // init - new
+					review.init(scanner, Option.NEW, /* args= */null);
+					continue;
+				}
+				if (Review.initOptions[2].equals(arg)) { // init -dir
+					review.init(scanner, Option.DIR, arg);
+					continue;
+				}
+			}
+			System.out.println("Unrecognized commands.");
 			Review.printHelp();
-			return;
 		}
-		// default: for all unhandled cases.
-		System.out.println("Unrecognized commands.");
-		Review.printHelp();
 	}
 
 	private static class Range {
@@ -244,7 +273,6 @@ public class Review {
 	}
 
 	enum Option {
-
 		ALL(Option.ALL_VALUE), NEW(Option.NEW_VALUE), DIR(Option.DIR_VALUE);
 
 		public static final int ALL_VALUE = 0;
@@ -252,7 +280,6 @@ public class Review {
 		public static final int DIR_VALUE = 2;
 
 		private final int value;
-
 		Option(int v) {
 			value = v;
 		}

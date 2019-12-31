@@ -39,21 +39,14 @@ public class Utils {
     }
 
     /**
-     * 1. scan all problems in specified directory;
-     * 2. if diff == INVALID_DIFF, clear problems Map and add all scanned problems in problems Map,
-     * and persist into a file;
-     * 3. if diff == positive number, for problems with last modified Date vs current date difference in days
-     * less than diff, add them directly into problems Map;
-     * @param diff difference threshold in days, -1 if it is invalid.
-     * @return "success" if all operations are done successfully, otherwise return "failure" or exception messages.
-     * */
-    private String init(int diff) {
-        return OP_SUCCESS;
-    }
-
-
-    // For testing utils.
-    public static void main(String[] args) {
-        long sys = System.currentTimeMillis();
+	 * @param bound
+	 *            the upper bound of the range.
+	 * @return a random long between 0 and bound
+	 */
+	public static long getRandom(long bound) {
+		long left = 0L;
+		long right = bound;
+		long next = left + (long) (Math.random() * (right - left));
+		return next;
     }
 }

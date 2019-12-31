@@ -4,12 +4,14 @@ import static com.company.Utils.OP_FAILURE;
 import static com.company.Utils.OP_SUCCESS;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 
 public class Review {
 	public static final String[] commands = { "init", "next", "help" };
@@ -29,6 +31,9 @@ public class Review {
 	private final Map<Range, /* Value is like fileLastModifiedDate@dirName. */String> problems = new HashMap<>();
 
 	public Review() {
+		if (!OP_SUCCESS.equals(resumeProblems())) {
+			initProblems();
+		}
 	}
 
 	/**
@@ -69,20 +74,62 @@ public class Review {
 	 */
 	private String persistProblems() {
 		File pf = new File(problemFileName);
+		FileWriter fileWriter = null;
+		PrintWriter printWriter = null;
 		try {
 			if (pf.exists()) {
 				pf.delete();
 			}
 			pf.createNewFile();
-			FileWriter fileWriter = new FileWriter(problemFileName);
-			PrintWriter printWriter = new PrintWriter(fileWriter);
+			fileWriter = new FileWriter(problemFileName);
+			printWriter = new PrintWriter(fileWriter);
 			for (Map.Entry<Range, String> entry : problems.entrySet()) {
 				printWriter.println(entry.getKey().lastModified);
 				printWriter.println(entry.getValue());
 			}
-			printWriter.close();
 		} catch (IOException e) {
-			return OP_FAILURE;
+			return e.getMessage();
+		} finally {
+			if (printWriter != null) {
+				printWriter.close();
+			}
+		}
+		return OP_SUCCESS;
+	}
+
+	/**
+	 * 
+	 * @return "success" when all operations are successful, otherwise return
+	 *         exception messages, or "failure" for system error.
+	 */
+	private String resumeProblems() {
+		Scanner scanner = null;
+		try {
+			File pf = new File(problemFileName);
+			if (!pf.exists()) {
+				return OP_FAILURE;
+			}
+			scanner = new Scanner(pf);
+			problems.clear();
+			long sys = System.currentTimeMillis();
+			bound = 0;
+			while (scanner.hasNext()) {
+				long timeStamp = scanner.nextLong();
+				scanner.nextLine();
+				if (!scanner.hasNext()) {
+					break;
+				}
+				String title = scanner.nextLine();
+				int diffInDays = Utils.getDiffInDays(sys, timeStamp);
+				problems.put(new Range(bound, bound + diffInDays, timeStamp), title);
+				bound += diffInDays;
+			}
+		} catch (FileNotFoundException e) {
+			return e.getMessage();
+		} finally {
+			if (scanner != null) {
+				scanner.close();
+			}
 		}
 		return OP_SUCCESS;
 	}
@@ -94,10 +141,7 @@ public class Review {
 	 **/
 	public String next() {
 		System.out.println("next");
-		// TODO: implement the below instructions
-		// 1. randomly generate a number in [0...bound] range.
-		// 2. take the number as a key, get the string from problems.
-		// 3. return the string.
+
 		return null;
 	}
 
@@ -183,9 +227,9 @@ public class Review {
 	}
 
 	private static class Range {
-		long start;
-		long end;
-		long lastModified;
+		final long start;
+		final long end;
+		final long lastModified;
 
 		Range(long start, long end, long lastModified) {
 			this.start = start;

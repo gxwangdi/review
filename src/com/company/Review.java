@@ -1,44 +1,61 @@
 package com.company;
 
-import java.util.Date;
+import java.io.File;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.company.Utils.OP_FAILURE;
+import static com.company.Utils.OP_SUCCESS;
 
 public class Review {
     public static final String[] commands = {"init", "next", "help"};
 
-    public static final String[] initOptions = {"-all", "-new"};
-
-    public static final String OP_SUCCESS = "success";
-    public static final String OP_FAILURE = "failure";
-    public static final int INVALID_DIFF = -1;
+    public static final String[] initOptions = {"-all", "-new", "-dir"};
 
     // File name to persist everything.
-    private static final String fileName = "review_problems";
+    private static final String problemFileName = "./review_problems";
+    // TODO: implement customize dirFileName
+    private static final String dirFileName = "/Users/gxwangdi/Projects/Leetcode";
+//    private static final String dirFileName = "./review_problem_dir";
 
+    // The full path where your problems located, like "/Users/$USER/Projects/Leetcode".
+    private String dirPath;
+    // The upper bound of ranges. Instance var to serve initNew.
     private int bound = 0;
     private final Map<
-            /*Key is in [0...bound] range.*/Integer
+            Range
             , /*Value is like fileLastModifiedDate@dirName.*/String> problems = new HashMap<>();
 
     public Review() {}
 
     /**
-     * 1. open file in readonly mode, the file is indicated by fileName;
-     * 2. load everything from file into problems Map;
-     * 3. if file does not exist or empty, return false;
-     * 4. else return true after completion.
+     * 1. clear problems map
+     * 2. open file in readonly mode, the file is indicated by fileName;
+     * 3. load everything from file into problems Map;
+     * 4. if file does not exist or empty, return false;
+     * 5. else return true after completion.
      *
      * @return true if there is anything loaded from file.
      */
     private boolean initProblems() {
-        // TODO: add implementation based on javadoc.
-        file  = new next();//call next function
-        problems.put(fileName); // put file into map
-
-        if (file == null || file.isEmpty()) {
-            return false;
+        problems.clear();
+        File file = new File(dirPath);
+        // TODO: Add handling if dirPath does not exist.
+        bound = 0;
+        long sys = System.currentTimeMillis();
+        for (File f : file.listFiles()) {
+            if (!f.isDirectory()) {
+                continue;
+            }
+            int diffInDays = Utils.getDiffInDays(sys, f.lastModified());
+            Range range = new Range(bound, bound+diffInDays);
+            bound += diffInDays;
+            problems.put(range, f.getName());
         }
+        // TODO: Add handling if persistProblems fails.
+        persistProblems();
+        printProblems(problems);
         return true;
     }
 
@@ -53,14 +70,6 @@ public class Review {
         return OP_SUCCESS;
     }
 
-    /**
-     * @param fileLastModifyDate a date
-     * @return the difference between fileLastModifyDate and currentDate in days.
-     * */
-    private int getRange(Date fileLastModifyDate) {
-        // TODO: add implementation based on javadoc.
-        return 0;
-    }
 
     /**
      * 1. select one problem randomly based on weight rule;
@@ -76,41 +85,57 @@ public class Review {
         return null;
     }
 
-    enum Option {//数据类型
-        ALL, NEW;
-    }
-
     /**
      * @param option
      * @return "success" for success, or error information.
-     */
-    public String init(Option option) {
+     */ // TODO: Add Nullable annotation for args.
+    public String init(Option option, String[] args) {
         System.out.println("init " + option);
+        switch (option.getValue()) {
+            case Option.DIR_VALUE:
+                if (args == null || args.length < 3) {
+                    System.out.println("Unrecognized commands: " + Arrays.toString(args));
+                    printHelp();
+                    return OP_FAILURE;
+                }
+                dirPath = args[2];
+                break;
+            case Option.ALL_VALUE:
+                String path = Utils.validateDirPath(dirPath);
+                if (OP_FAILURE == path) {
+                    System.out.println("Invalidated path: " + dirPath);
+                    printHelp();
+                    return OP_FAILURE;
+                }
+                if (!initProblems()) {
+                    return OP_FAILURE;
+                }
+                break;
+            case Option.NEW_VALUE:
+                break;
+            default:
+                System.out.println("Unhandled options: " + Arrays.toString(args));
+                // handle unexpected cases.
+        }
         return OP_SUCCESS;
     }
 
-    /**
-     * 1. scan all problems in specified directory;
-     * 2. if diff == INVALID_DIFF, clear problems Map and add all scanned problems in problems Map,
-     * and persist into a file;
-     * 3. if diff == positive number, for problems with last modified Date vs current date difference in days
-     * less than diff, add them directly into problems Map;
-     * @param diff difference threshold in days, -1 if it is invalid.
-     * @return "success" if all operations are done successfully, otherwise return "failure" or exception messages.
-     * */
-    private String init(int diff) {
-        return OP_SUCCESS;
+    private static void printProblems(Map<Range, String> problems) {
+        System.out.print("problems:");
+        for (Map.Entry<Range, String> entry : problems.entrySet()) {
+            System.out.println("\n" + entry.getKey() + ":" + entry.getValue() + "\n");
+        }
     }
 
     public static void printHelp() {
         System.out.println(
                 "Please enter the right command:\n" +
                         "init -all|-new gets new problems into the repository;\n" +
+                        "init -dir <full path dir> inputs the dir to your problem repository;\n" +
                         "next gets the problem you will need to review;\n" +
                         "help prints this page."
         );
     }
-
 
     public static void main(String[] args) {
         if (args == null || args.length < 1) {
@@ -120,11 +145,15 @@ public class Review {
         Review review = new Review();
         if (Review.commands[0].equals(args[0])) { // init
             if (args.length < 2 || Review.initOptions[1].equals(args[1])) { // init -new
-                review.init(Option.NEW);
+                review.init(Option.NEW, /*args=*/null);
                 return;
             }
             if (Review.initOptions[0].equals(args[1])) { // init -all
-                review.init(Option.ALL);
+                review.init(Option.ALL, /*args=*/null);
+                return;
+            }
+            if (Review.initOptions[2].equals(args[1])) { // init -dir
+                review.init(Option.DIR, args);
                 return;
             }
         } else if (Review.commands[1].equals(args[0])) { // next
@@ -135,8 +164,37 @@ public class Review {
             return;
         }
         // default: for all unhandled cases.
+        System.out.println("Unrecognized commands.");
         Review.printHelp();
     }
 
+    private static class Range {
+        int start;
+        int end;
+        Range(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    enum Option {
+
+        ALL(Option.ALL_VALUE),
+        NEW(Option.NEW_VALUE),
+        DIR(Option.DIR_VALUE);
+
+        public static final int ALL_VALUE=0;
+        public static final int NEW_VALUE=1;
+        public static final int DIR_VALUE=2;
+
+        private final int value;
+        Option(int v) {
+            value = v;
+        }
+
+        public int getValue() {
+            return value;
+        }
+    }
 }
 
